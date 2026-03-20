@@ -1,0 +1,9 @@
+{
+	"$schema": "https://biomejs.dev/schemas/2.4.8/schema.json",
+	"extends": ["./packages/config-biome/shared.json"],
+	"vcs": {
+		"enabled": true,
+		"clientKind": "git",
+		"useIgnoreFile": true
+	}
+}
