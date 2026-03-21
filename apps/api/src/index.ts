@@ -1,4 +1,5 @@
 import { type GammaMarket, TradingMarketSchema } from "@repo/types";
+import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import { z } from "zod";
@@ -8,101 +9,116 @@ dotenv.config();
 const app = express();
 const port = process.env.PORT || 3001;
 
-// Use Gamma API for market discovery
-const GAMMA_API_URL = "https://gamma-api.polymarket.com/markets";
+const GAMMA_API_URL = "https://gamma-api.polymarket.com";
+const DEFAULT_TRADING_TAGS = [
+  "crypto",
+  "finance",
+  "economy",
+  "business",
+  "stocks",
+  "macro",
+];
 
-// Defined trading tags based on documentation analysis
-const TRADING_TAGS = ["crypto", "finance", "economy", "business", "stocks", "macro"];
-
+app.use(cors());
 app.use(express.json());
 
 /**
- * GET /markets
- * Fetches optimized trading markets.
- * Query Params:
- * - tag: specific tag (default: all trading tags)
- * - limit: number of results (default: 50)
+ * GET /tags
+ * Fetches popular tags for discovery
  */
-app.get("/markets", async (req, res) => {
-	try {
-		const tag = req.query.tag as string;
-		const limit = Number.parseInt((req.query.limit as string) || "50", 10);
-
-		const targetTags = tag ? [tag] : TRADING_TAGS;
-		const allMarkets: GammaMarket[] = [];
-
-		for (const t of targetTags) {
-			const params = new URLSearchParams({
-				active: "true",
-				closed: "false",
-				tag_slug: t,
-				limit: "50",
-				liquidity_num_min: "100",
-			});
-
-			const response = await fetch(`${GAMMA_API_URL}?${params.toString()}`);
-			if (response.ok) {
-				const data = (await response.json()) as GammaMarket[];
-				allMarkets.push(...data);
-			}
-		}
-
-		// Remove duplicates and sort
-		const uniqueMarkets = Array.from(new Map(allMarkets.map((m) => [m.conditionId, m])).values());
-		const sortedMarkets = uniqueMarkets
-			.sort((a, b) => (b.liquidityNum || 0) - (a.liquidityNum || 0))
-			.slice(0, limit);
-
-		const validated = z.array(TradingMarketSchema).parse(sortedMarkets);
-		res.json(validated);
-	} catch (error) {
-		console.error("Error fetching markets:", error);
-		res.status(500).json({ error: "Failed to fetch markets" });
-	}
+app.get("/tags", async (_req, res) => {
+  try {
+    const response = await fetch(
+      `${GAMMA_API_URL}/tags?limit=100&order=id&ascending=true`,
+    );
+    if (!response.ok) throw new Error("Failed to fetch tags");
+    const data = await response.json();
+    res.json(data);
+  } catch (error) {
+    res.status(500).json({ error: "Failed to fetch tags" });
+  }
 });
 
 /**
- * GET /trending
- * Specifically returns the top 20 hottest trading opportunities.
+ * GET /markets (Unified)
+ * Params:
+ * - tags: comma separated slugs
+ * - sortBy: liq | vol | date | trending
+ * - order: asc | desc
+ * - limit: number
+ * - minLiq: number
  */
-app.get("/trending", async (_req, res) => {
-	try {
-		const allMarkets: GammaMarket[] = [];
+app.get("/markets", async (req, res) => {
+  try {
+    const tagsParam = req.query.tags as string;
+    const sortBy = (req.query.sortBy as string) || "liq";
+    const order = (req.query.order as string) || "desc";
+    const limit = Number.parseInt((req.query.limit as string) || "50", 10);
+    const minLiq = Number.parseInt((req.query.minLiq as string) || "100", 10);
 
-		for (const t of TRADING_TAGS) {
-			const params = new URLSearchParams({
-				active: "true",
-				closed: "false",
-				tag_slug: t,
-				limit: "20",
-				liquidity_num_min: "500",
-			});
+    const targetTags = tagsParam ? tagsParam.split(",") : DEFAULT_TRADING_TAGS;
+    const allMarkets: GammaMarket[] = [];
 
-			const response = await fetch(`${GAMMA_API_URL}?${params.toString()}`);
-			if (response.ok) {
-				const data = (await response.json()) as GammaMarket[];
-				allMarkets.push(...data);
-			}
-		}
+    // Parallel fetch for tags
+    await Promise.all(
+      targetTags.map(async (tag) => {
+        const params = new URLSearchParams({
+          active: "true",
+          closed: "false",
+          tag_slug: tag.trim(),
+          limit: "100",
+          liquidity_num_min: minLiq.toString(),
+        });
+        const response = await fetch(
+          `${GAMMA_API_URL}/markets?${params.toString()}`,
+        );
+        if (response.ok) {
+          const data = (await response.json()) as GammaMarket[];
+          allMarkets.push(...data);
+        }
+      }),
+    );
 
-		const uniqueMarkets = Array.from(new Map(allMarkets.map((m) => [m.conditionId, m])).values());
+    // Deduplicate
+    const uniqueMarkets = Array.from(
+      new Map(allMarkets.map((m) => [m.conditionId, m])).values(),
+    );
 
-		const trending = uniqueMarkets
-			.sort((a, b) => {
-				const scoreA = (a.liquidityNum || 0) + (a.volumeNum || 0) / 10;
-				const scoreB = (b.liquidityNum || 0) + (b.volumeNum || 0) / 10;
-				return scoreB - scoreA;
-			})
-			.slice(0, 20);
+    // Dynamic Sort
+    const sorted = uniqueMarkets.sort((a, b) => {
+      let valA = 0;
+      let valB = 0;
 
-		const validated = z.array(TradingMarketSchema).parse(trending);
-		res.json(validated);
-	} catch (error) {
-		console.error("Error fetching trending:", error);
-		res.status(500).json({ error: "Failed to fetch trending markets" });
-	}
+      switch (sortBy) {
+        case "vol":
+          valA = a.volumeNum || 0;
+          valB = b.volumeNum || 0;
+          break;
+        case "date":
+          valA = new Date(a.endDate || 0).getTime();
+          valB = new Date(b.endDate || 0).getTime();
+          break;
+        case "trending":
+          valA = (a.liquidityNum || 0) + (a.volumeNum || 0) / 10;
+          valB = (b.liquidityNum || 0) + (b.volumeNum || 0) / 10;
+          break;
+        case "liq":
+        default:
+          valA = a.liquidityNum || 0;
+          valB = b.liquidityNum || 0;
+      }
+
+      return order === "asc" ? valA - valB : valB - valA;
+    });
+
+    const result = z.array(TradingMarketSchema).parse(sorted.slice(0, limit));
+    res.json(result);
+  } catch (error) {
+    console.error("API Error:", error);
+    res.status(500).json({ error: "Failed to fetch markets" });
+  }
 });
 
 app.listen(port, () => {
-	console.log(`API listening on port ${port}`);
+  console.log(`Unified API running on port ${port}`);
 });

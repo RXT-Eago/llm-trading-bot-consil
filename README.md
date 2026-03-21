@@ -69,12 +69,13 @@ Explore les marchés par catégorie de trading spécifique.
 
 - `tag` : Filtrer par tag spécifique (`crypto`, `finance`, `economy`, `business`, `stocks`, `macro`). Par défaut : tous.
 - `limit` : Nombre de résultats (défaut: 50).
+- `orderByDate` : Trier par date de fin (`asc` ou `desc`). Remplace le tri par liquidité par défaut.
 
 **Usage** :
 
 ```bash
-# Uniquement l'économie
-curl "http://localhost:3001/markets?tag=economy&limit=10"
+# Uniquement l'économie, trié par les échéances les plus proches
+curl "http://localhost:3001/markets?tag=economy&orderByDate=asc&limit=10"
 ```
 
 ---

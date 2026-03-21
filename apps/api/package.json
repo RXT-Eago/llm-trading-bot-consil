@@ -11,12 +11,14 @@
 	"dependencies": {
 		"@polymarket/clob-client": "^2.1.0",
 		"@repo/types": "workspace:*",
+		"cors": "^2.8.6",
 		"dotenv": "^16.4.5",
 		"express": "^4.19.2",
 		"zod": "^3.23.8"
 	},
 	"devDependencies": {
 		"@repo/typescript-config": "workspace:*",
+		"@types/cors": "^2.8.19",
 		"@types/express": "^4.17.21",
 		"@types/node": "^22.15.3",
 		"tsx": "^4.19.0",

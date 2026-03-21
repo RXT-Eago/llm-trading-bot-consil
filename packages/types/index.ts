@@ -18,6 +18,8 @@ export const GammaMarketSchema = z.object({
 	liquidityNum: z.number().optional().default(0),
 	volumeNum: z.number().optional().default(0),
 	endDate: z.string().optional(),
+	closed: z.boolean().optional().default(false),
+	archived: z.boolean().optional().default(false),
 });
 
 /**
@@ -34,6 +36,8 @@ export const TradingMarketSchema = GammaMarketSchema.transform((m) => {
 
 	return {
 		id: m.conditionId,
+		closed: m.closed,
+		archived: m.archived,
 		q: m.question,
 		liq: Math.round(m.liquidityNum),
 		vol: Math.round(m.volumeNum),
