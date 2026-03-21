@@ -1,130 +1,84 @@
-# 🚀 LLM Trading Bot Discovery API
+# 🚀 LLM Trading Bot Discovery API & Dashboard
 
-Une API ultra-optimisée pour alimenter des agents de trading LLM avec les données de marchés de prédiction Polymarket. Conçue pour minimiser la consommation de tokens tout en maximisant la pertinence des opportunités.
+Une solution complète pour la découverte et l'analyse de marchés Polymarket, optimisée pour les agents de trading LLM.
 
-## 🛠 Stack Technique
+## 🌟 Fonctionnalités
 
-- **Monorepo** : [Turborepo](https://turbo.build/) + [pnpm](https://pnpm.io/)
-- **Runtime** : Node.js avec TypeScript
-- **API** : Express
-- **Validation/Types** : [Zod](https://zod.dev/)
-- **Qualité** : [Biome](https://biomejs.dev/) (Linting & Formatting ultra-rapide)
+- **API Unifiée** : Un seul endpoint pour la découverte, le tri (liquidité, volume, échéance) et le filtrage.
+- **Payload LLM-Optimized** : Données ultra-compactes pour réduire la consommation de tokens.
+- **Trading Tags** : Focus automatique sur les segments porteurs (Crypto, Finance, Macro).
+- **Dashboard Premium** : Interface visuelle en Dark Mode avec Shadcn UI pour monitorer les opportunités.
 
 ---
 
-## 🏗 Installation & Setup
+## 🛠 Installation Rapide (Plug & Play)
 
 ### 1. Prérequis
 
-- [pnpm](https://pnpm.io/installation) installé.
-- Node.js v18+.
+- [pnpm](https://pnpm.io/installation) installé (`npm install -g pnpm`).
+- Node.js v18 ou plus.
 
-### 2. Installation des dépendances
+### 2. Démarrage en une commande
 
-```bash
-pnpm install
-```
-
-### 3. Build du projet
-
-Compile l'ensemble des packages partagés et l'application API.
+À la racine du projet, lancez :
 
 ```bash
-pnpm build
+pnpm install && pnpm dev
 ```
 
-### 4. Lancer l'API
+Cette commande installe les dépendances et lance simultanément :
 
-```bash
-pnpm dev
-```
-
-L'API sera disponible sur **`http://localhost:3001`**.
+- **Frontend** : `http://localhost:3000`
+- **API** : `http://localhost:3001`
 
 ---
 
-## 📡 Endpoints "LLM-Ready"
+## 📡 Endpoints pour votre Agent
 
-Tous les endpoints renvoient un JSON ultra-compact conçu pour économiser les tokens de vos prompts.
+### Discovery & Trading Data
 
-### 1. 🔥 Get Trending Markets
+**Endpoint** : `GET http://localhost:3001/markets`
 
-Récupère les 20 opportunités les plus "chaudes" (combinaison de liquidité élevée et volume récent) dans les segments trading (Crypto, Finance, Macro).
+**Paramètres Query :**
 
-**Endpoint** : `GET /trending`
+- `tagIds` : Liste d'IDs de catégories (ex: `21` pour Crypto).
+- `sortBy` : `liq` (défaut), `vol` (volume), `date` (échéance), `trending` (hot).
+- `order` : `asc` | `desc`.
+- `limit` : Nombre de marchés à retourner (défaut: 50).
 
-**Usage** :
-
-```bash
-curl http://localhost:3001/trending
-```
-
-### 2. 📊 List Trading Markets
-
-Explore les marchés par catégorie de trading spécifique.
-
-**Endpoint** : `GET /markets`
-
-**Paramètres (Query)** :
-
-- `tag` : Filtrer par tag spécifique (`crypto`, `finance`, `economy`, `business`, `stocks`, `macro`). Par défaut : tous.
-- `limit` : Nombre de résultats (défaut: 50).
-- `orderByDate` : Trier par date de fin (`asc` ou `desc`). Remplace le tri par liquidité par défaut.
-
-**Usage** :
+**Exemple curl :**
 
 ```bash
-# Uniquement l'économie, trié par les échéances les plus proches
-curl "http://localhost:3001/markets?tag=economy&orderByDate=asc&limit=10"
+# Récupérer les marchés crypto les plus liquides
+curl "http://localhost:3001/markets?tagIds=21&sortBy=liq"
 ```
 
 ---
 
-## 🧠 Format de donnée (Optimisé pour Agent)
+## 💻 Structure du Projet
 
-Chaque objet marché est structuré ainsi :
-
-```json
-{
-  "id": "0x...", // Condition ID (Requis pour exécuter le trade sur le CLOB)
-  "q": "Question ?", // Contexte court
-  "liq": 125000, // Liquidité (Confiance dans le prix)
-  "vol": 15000, // Volume (Activité récente)
-  "ends": "2025-12-31", // Date d'expiration
-  "choices": {
-    // Mapping direct Outcome -> Prix & Token
-    "Yes": {
-      "p": 0.55, // Probabilité (Prix entre 0 et 1)
-      "t": "734..." // Token ID (Requis pour l'achat via SDK)
-    },
-    "No": {
-      "p": 0.45,
-      "t": "563..."
-    }
-  }
-}
+```text
+├── apps
+│   ├── api          # API Express (Discovery Service)
+│   └── web          # Dashboard Next.js (Trading Desk)
+├── packages
+│   ├── types        # Schémas Zod partagés (Le contrat de données)
+│   └── config-biome # Linter & Formatter ultra-rapide
+└── turbo.json       # Orchestration du monorepo
 ```
 
 ---
 
-## 🧼 Qualité du Code
+## 🧼 Commandes de Maintenance
 
-Le projet impose des standards de qualité stricts via Biome.
-
-- **Vérification de la qualité (Lint test)** :
-  ```bash
-  pnpm test:lint
-  ```
-- **Formatage automatique** :
-  ```bash
-  pnpm format
-  ```
+- **Vérifier la qualité du code** : `pnpm test:lint`
+- **Reformatter tout le projet** : `pnpm format`
+- **Rebuilder le monorepo** : `pnpm build`
 
 ---
 
-## 📁 Structure du Monorepo
+## 💡 Pourquoi utiliser cette API ?
 
-- `apps/api` : L'application Express principale.
-- `packages/types` : Schémas Zod et types TypeScript partagés (Contrat de données LLM).
-- `packages/config-biome` : Configuration centralisée du linter et formatter.
-- `packages/typescript-config` : Config TS partagée.
+Les APIs classiques de Polymarket renvoient des milliers de lignes de JSON inutiles (URLs d'images, métadonnées sociales). Cette API filtre tout pour ne garder que **le Condition ID, le Question text, la Liquidité et les Token IDs**.
+
+Votre LLM reçoit 10x plus de marchés dans le même contexte qu'avec l'API standard.

@@ -1,7 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { MarketCard } from "@/components/MarketCard";
 import {
   BarChart3,
@@ -16,22 +16,24 @@ import {
 import type { TradingMarket } from "@repo/types";
 
 const API_URL = "http://localhost:3001";
-const TRADING_TAGS = [
-  "crypto",
-  "finance",
-  "economy",
-  "business",
-  "stocks",
-  "macro",
-];
 
 interface Tag {
+  id: string;
   slug: string;
   label: string;
 }
 
+// Initial trading tags to show if remote fetch fails or while loading
+const INITIAL_TAGS: Tag[] = [
+  { id: "21", slug: "crypto", label: "Crypto" },
+  { id: "100519", slug: "finance", label: "Finance" },
+  { id: "100520", slug: "economy", label: "Economy" },
+  { id: "100521", slug: "business", label: "Business" },
+];
+
 export default function Dashboard() {
-  const [selectedTags, setSelectedTags] = useState<string[]>(["crypto"]);
+  // Use IDs for selection to match Gamma API requirements
+  const [selectedTagIds, setSelectedTagIds] = useState<string[]>(["21"]);
   const [sortBy, setSortBy] = useState("liq");
   const [order, setOrder] = useState("desc");
 
@@ -51,10 +53,10 @@ export default function Dashboard() {
     refetch,
     isFetching,
   } = useQuery<TradingMarket[]>({
-    queryKey: ["markets", selectedTags, sortBy, order],
+    queryKey: ["markets", selectedTagIds, sortBy, order],
     queryFn: async () => {
       const params = new URLSearchParams({
-        tags: selectedTags.join(","),
+        tagIds: selectedTagIds.join(","),
         sortBy,
         order,
         limit: "40",
@@ -65,25 +67,25 @@ export default function Dashboard() {
     },
   });
 
-  const toggleTag = (tag: string) => {
-    setSelectedTags((prev) =>
-      prev.includes(tag) ? prev.filter((t) => t !== tag) : [...prev, tag],
+  const toggleTag = (tagId: string) => {
+    setSelectedTagIds((prev) =>
+      prev.includes(tagId)
+        ? prev.filter((id) => id !== tagId)
+        : [...prev, tagId],
     );
   };
 
-  // Combine default trading tags with remote tags, unique by slug
-  const displayTags = Array.from(
-    new Map<string, Tag>([
-      ...TRADING_TAGS.map(
-        (t) =>
-          [t, { slug: t, label: t.charAt(0).toUpperCase() + t.slice(1) }] as [
-            string,
-            Tag,
-          ],
-      ),
-      ...(remoteTags?.map((t) => [t.slug, t] as [string, Tag]) || []),
-    ]).values(),
-  ).slice(0, 25);
+  // Combine initial tags with remote tags, unique by id
+  const displayTags = useMemo(() => {
+    const tagMap = new Map<string, Tag>();
+    INITIAL_TAGS.forEach((t) => {
+      tagMap.set(t.id, t);
+    });
+    remoteTags?.forEach((t) => {
+      tagMap.set(t.id, t);
+    });
+    return Array.from(tagMap.values()).slice(0, 30);
+  }, [remoteTags]);
 
   return (
     <main className="min-h-screen p-4 md:p-8 max-w-7xl mx-auto space-y-8">
@@ -124,10 +126,10 @@ export default function Dashboard() {
                 <TagIcon className="w-3 h-3" />
                 Discovery Tags
               </div>
-              {selectedTags.length > 0 && (
+              {selectedTagIds.length > 0 && (
                 <button
                   type="button"
-                  onClick={() => setSelectedTags([])}
+                  onClick={() => setSelectedTagIds([])}
                   className="text-[10px] text-primary hover:underline font-bold uppercase tracking-widest"
                 >
                   Clear All
@@ -137,11 +139,11 @@ export default function Dashboard() {
             <div className="flex flex-wrap gap-2">
               {displayTags.map((tag) => (
                 <button
-                  key={tag.slug}
+                  key={tag.id}
                   type="button"
-                  onClick={() => toggleTag(tag.slug)}
+                  onClick={() => toggleTag(tag.id)}
                   className={`px-3 py-1.5 rounded-md text-xs font-semibold border transition-all ${
-                    selectedTags.includes(tag.slug)
+                    selectedTagIds.includes(tag.id)
                       ? "bg-primary text-primary-foreground border-primary"
                       : "bg-muted text-muted-foreground border-transparent hover:border-border"
                   }`}

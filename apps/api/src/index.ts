@@ -10,14 +10,9 @@ const app = express();
 const port = process.env.PORT || 3001;
 
 const GAMMA_API_URL = "https://gamma-api.polymarket.com";
-const DEFAULT_TRADING_TAGS = [
-  "crypto",
-  "finance",
-  "economy",
-  "business",
-  "stocks",
-  "macro",
-];
+// Default trading tag IDs (discovered via API)
+// 1 = Crypto, etc. To be safe, we'll let the frontend drive this or use a few known ones.
+const DEFAULT_TRADING_TAG_IDS = [1, 100519, 100520]; // Just examples, we'll make it dynamic
 
 app.use(cors());
 app.use(express.json());
@@ -42,7 +37,7 @@ app.get("/tags", async (_req, res) => {
 /**
  * GET /markets (Unified)
  * Params:
- * - tags: comma separated slugs
+ * - tagIds: comma separated integers
  * - sortBy: liq | vol | date | trending
  * - order: asc | desc
  * - limit: number
@@ -50,36 +45,62 @@ app.get("/tags", async (_req, res) => {
  */
 app.get("/markets", async (req, res) => {
   try {
-    const tagsParam = req.query.tags as string;
+    const tagIdsParam = req.query.tagIds as string;
     const sortBy = (req.query.sortBy as string) || "liq";
     const order = (req.query.order as string) || "desc";
     const limit = Number.parseInt((req.query.limit as string) || "50", 10);
     const minLiq = Number.parseInt((req.query.minLiq as string) || "100", 10);
 
-    const targetTags = tagsParam ? tagsParam.split(",") : DEFAULT_TRADING_TAGS;
+    // Fallback to a default if no tagIds provided
+    // If tagIds is empty, we fetch without tag filter (general trending)
+    const tagIds = tagIdsParam
+      ? tagIdsParam.split(",").map((id) => id.trim())
+      : [];
+
     const allMarkets: GammaMarket[] = [];
 
-    // Parallel fetch for tags
-    await Promise.all(
-      targetTags.map(async (tag) => {
-        const params = new URLSearchParams({
-          active: "true",
-          closed: "false",
-          tag_slug: tag.trim(),
-          limit: "100",
-          liquidity_num_min: minLiq.toString(),
-        });
-        const response = await fetch(
-          `${GAMMA_API_URL}/markets?${params.toString()}`,
-        );
-        if (response.ok) {
-          const data = (await response.json()) as GammaMarket[];
+    if (tagIds.length > 0) {
+      // Parallel fetch for each tag ID
+      await Promise.all(
+        tagIds.map(async (id) => {
+          const params = new URLSearchParams({
+            active: "true",
+            closed: "false",
+            tag_id: id,
+            limit: "100",
+            liquidity_num_min: minLiq.toString(),
+          });
+          const response = await fetch(
+            `${GAMMA_API_URL}/markets?${params.toString()}`,
+          );
+          if (response.ok) {
+            const data = (await response.json()) as GammaMarket[];
+            if (Array.isArray(data)) {
+              allMarkets.push(...data);
+            }
+          }
+        }),
+      );
+    } else {
+      // Fetch general markets
+      const params = new URLSearchParams({
+        active: "true",
+        closed: "false",
+        limit: "100",
+        liquidity_num_min: minLiq.toString(),
+      });
+      const response = await fetch(
+        `${GAMMA_API_URL}/markets?${params.toString()}`,
+      );
+      if (response.ok) {
+        const data = (await response.json()) as GammaMarket[];
+        if (Array.isArray(data)) {
           allMarkets.push(...data);
         }
-      }),
-    );
+      }
+    }
 
-    // Deduplicate
+    // Deduplicate by conditionId
     const uniqueMarkets = Array.from(
       new Map(allMarkets.map((m) => [m.conditionId, m])).values(),
     );
