@@ -1,11 +1,15 @@
 import type { TradingMarket } from "@repo/types";
-import { Calendar, Droplets, TrendingUp, Copy } from "lucide-react";
+import { Calendar, Droplets, TrendingUp, Copy, FileJson } from "lucide-react";
 
 export function MarketCard({ market }: { market: TradingMarket }) {
   const outcomes = Object.entries(market.choices);
 
-  const copyToClipboard = () => {
+  const copyId = () => {
     navigator.clipboard.writeText(market.id);
+  };
+
+  const copyJson = () => {
+    navigator.clipboard.writeText(JSON.stringify(market, null, 2));
   };
 
   return (
@@ -50,19 +54,29 @@ export function MarketCard({ market }: { market: TradingMarket }) {
           </div>
         </div>
 
-        <div className="flex items-center justify-between">
-          <div className="flex items-center text-[10px] text-muted-foreground gap-1 bg-secondary px-2 py-0.5 rounded">
-            <Calendar className="w-3 h-3" />
+        <div className="flex items-center justify-between gap-2">
+          <div className="flex items-center text-[10px] text-muted-foreground gap-1 bg-secondary px-2 py-0.5 rounded truncate">
+            <Calendar className="w-3 h-3 flex-shrink-0" />
             <span>Ends: {market.ends}</span>
           </div>
-          <button
-            type="button"
-            onClick={copyToClipboard}
-            className="p-1 hover:bg-secondary rounded transition-colors"
-            title="Copy ID"
-          >
-            <Copy className="w-3 h-3 text-muted-foreground" />
-          </button>
+          <div className="flex items-center gap-1 flex-shrink-0">
+            <button
+              type="button"
+              onClick={copyJson}
+              className="p-1.5 hover:bg-secondary rounded transition-colors text-muted-foreground hover:text-primary"
+              title="Copy Optimized JSON for LLM"
+            >
+              <FileJson className="w-3.5 h-3.5" />
+            </button>
+            <button
+              type="button"
+              onClick={copyId}
+              className="p-1.5 hover:bg-secondary rounded transition-colors text-muted-foreground hover:text-primary"
+              title="Copy Condition ID"
+            >
+              <Copy className="w-3.5 h-3.5" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
